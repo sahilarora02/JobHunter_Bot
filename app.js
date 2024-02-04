@@ -1,61 +1,86 @@
-const fs = require('fs');
-const Cheerio = require("cheerio");
+const express = require("express");
+const mongoose = require("mongoose");
+const app = express();
+const cors = require("cors");
+const cheerio = require("cheerio");
 const fetch = require("node-fetch");
-const cron = require('node-cron');
-const nodemailer = require('nodemailer');
+const nodemailer = require("nodemailer");
+const cron = require("node-cron");
 require('dotenv').config();
-async function searchPost() {
+const PORT = process.env.PORT || 4002;
+console.log(process.env.MONGO_URI)
+// Connect to MongoDB
+mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true });
+const db = mongoose.connection;
+db.on("error", console.error.bind(console, "MongoDB connection error:"));
+
+// MongoDB Model for storing email addresses
+const SubscriberModel = mongoose.model("Subscriber", {
+  email: {
+    type: String,
+    require:true,
+   unique:true
+  },
+});
+
+app.use(express.json());
+app.use(cors());
+app.use(express.urlencoded({ extended: false }));
+
+app.get("/latest-jobs", async (req, res) => {
   try {
-    const res = await fetch("https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search?keywords=Software%2BDevelopment&location=Delhi%2C%2BIndia&geoId=106187582&trk=public_jobs_jobs-search-bar_search-submit&start=25", {
-      "headers": {
-        "accept": "*/*",
-        "accept-language": "en-US,en;q=0.9",
-        "csrf-token": "ajax:0927536956846882029",
-        "sec-ch-ua": "\"Google Chrome\";v=\"117\", \"Not;A=Brand\";v=\"8\", \"Chromium\";v=\"117\"",
-        "sec-ch-ua-mobile": "?0",
-        "sec-ch-ua-platform": "\"Windows\"",
-        "sec-fetch-dest": "empty",
-        "sec-fetch-mode": "cors",
-        "sec-fetch-site": "same-origin",
-        "cookie": "bcookie=\"v=2&ddafe79e-1b97-482d-82f4-94c5d352a443\"; bscookie=\"v=1&202307161737290ed570d7-993d-4a44-825a-693847b14f50AQF1GcZ6P8MMNB6sa8I4vnOUrwQebS2z\"; li_theme=light; li_theme_set=app; li_sugr=1af75e80-60bd-4633-946e-9da25fb36fe2; _guid=1bdf5f51-9427-4513-983d-1105b48cff1a; aam_uuid=48250712794344510932896103874690794099; visit=v=1&M; _gcl_au=1.1.1964574353.1691811696; timezone=Asia/Calcutta; AnalyticsSyncHistory=AQK58ax_BYP17gAAAYsII8knJFPp-iSrhwytwFEvxS4xDLzpnhGkc-51vfvrEtvGuFc2ussHg12EwBsfufOMeg; lms_ads=AQHYYUys1cpQlAAAAYsII8pttwE8BBaeOjs5ybiSKG3gsApNLUCZpZlCTThhgwq_mAW_rOQK7ham9cfgKMzRdbihR5YgbRBO; lms_analytics=AQHYYUys1cpQlAAAAYsII8pttwE8BBaeOjs5ybiSKG3gsApNLUCZpZlCTThhgwq_mAW_rOQK7ham9cfgKMzRdbihR5YgbRBO; AMCVS_14215E3D5995C57C0A495C55%40AdobeOrg=1; AMCV_14215E3D5995C57C0A495C55%40AdobeOrg=-637568504%7CMCIDTS%7C19638%7CMCMID%7C47719068489065255342953842512892080568%7CMCAAMLH-1697277988%7C12%7CMCAAMB-1697277988%7CRKhpRz8krg2tLO6pguXWp5olkAcUniQYPHaMWWgdJ3xzPWQmdj0y%7CMCOPTOUT-1696680388s%7CNONE%7CMCCIDH%7C1807167712%7CvVersion%7C5.1.1; ln_or=eyI0MzQ2MTM3IjoiZCJ9; UserMatchHistory=AQIPFvGmmOhtiAAAAYsJ9FUykFeBHMsyuCfB9yyY6KloEAygJ0lLtXoAcv6vg58OJXRjpBv7o7tfjnwFZJUi566D-h-8q_xKd8niHF_AtDBjfLFvHygvXFMwf2gn4kY_45AzC3fusZfN8YhAI-v7mg5I6p-YfadSuV1XsDmi5fy5jCfAMFBOQSIqYK8rrW5OFSFykGqmz_aN7ix4Qt4e_OtfbHPeS7iDx_hlxEeAtL50Ju39CMpBZXNjGAaQ5pafPjTTn8Z6FtS4tbifqU3x4i7OKd2FpFLYXsabWS7dLaJx2vSBLXLu03WV5jMsd2k5W0Lpmhc48nFiHavDDptIKSpk49KTblg; sdsc=22%3A1%2C1696679091736%7EJAPP%2C0CzK0G%2BR5kYXTxBMFvgSMs4Y0D6w%3D; li_rm=AQE26GjBzwYVyAAAAYsJ9KzoWsDpUpD2BItziwnDdtfmn5Z0yen7p2c5z3bQQ4Bb74Hm95B39jtoB2IoefRHDfGc2h8ObbSdw6X1qgJ8RFeeyS15eE_fUpGHOCl2rTkjSczGf9dyRBFYUGtV_v7EWn-y6lZmyMcRGs_pw7gI7aRaxwXI2hf86Lr9ABu9wNWp8BNBpGdCwd90GTshQr75x1gVNn5F_AwLTpfJqq4gZWI7lpIrG_3jSy_Ni5TLoz8gOCA_wYeRNRQ7LPFPtgO7AEAMzYw6wh-OL851LP96_4i5eZHVcENmrAWfGxmZzU4swxpQ-OrstmpW90QVxqo; li_g_recent_logout=v=1&true; lang=v=2&lang=en-us; lidc=\"b=VGST04:s=V:r=V:a=V:p=V:g=3012:u=1:x=1:i=1696679113:t=1696765513:v=2:sig=AQFtxxktZTseiOP_nADDZn-qp-QWPLF0\"; JSESSIONID=\"ajax:0927536956846882029\"; g_state={\"i_l\":1,\"i_p\":1696686319371}; recent_history=AQEnyKWgPWtyDQAAAYsJ9cqmZxEFcRI5JbElUntOaLlthL4nF-6Bf8pxjzZQyYINkLORX-Efa-dxDK0kC5LBNcz3EK_B8a32n_zjvAw26CLle6OFgw6A20VwYL5z9i6514zazoleNEd4WVB3FRRQIsYskZ5UMfkiLxpLKwFRmdaXpwV2kBsNjbPn-GTNy2stIV2Ygim0n2qz1xGprq071_iE-Dr_BtJOg9nkMuMawcAlSqQjuh2I_tm72Wlef1tl0BbeA-0JgnCB3uV5k_Qq6rkq_HMt28iQMtzze1rMSWsHnThtjQ_yc4Hvc6D_bS6cRS2oW5-3HFN6MjwhNpXynt5PBn-M8zclzMr5aI9OLlClP7xNMO1Kl3F8VsC5tlbA-uu9Sxs9T836l2pH0scAOS1LQBMSyHd0byZS6YBnwLEUqOHvDS9xaZMc9p-NAYRgwA",
-        "Referer": "https://www.linkedin.com/jobs/search?keywords=Software%20Development&location=Delhi%2C%20India&geoId=106187582&trk=public_jobs_jobs-search-bar_search-submit&position=1&pageNum=0",
-        "Referrer-Policy": "strict-origin-when-cross-origin"
-      },
-      "body": null,
-      "method": "GET"
-    });
-    const html = await res.text();
-    const $ = Cheerio.load(html);
-    const json = [];
-    const jobs = $(".job-search-card");
-    jobs.each((i,job)=>{
-      const id = $(job).attr("data-entity-urn")?.split(":")?.[3];
-      const title = $(job).find(".base-search-card__title")?.text()?.trim();
-      const company = $(job).find(".base-search-card__subtitle")?.text()?.trim();
-      const link = $(job).find("a").attr("href")?.split("?")[0];
-      const location = $(job).find(".job-search-card__location").text().trim();
-      json.push({id,title,company,link,location});
-    });
-    return json;
-  } catch (err) {
-    console.log("error in catch->", err.message);
+    const jobsData = await searchPost();
+    res.json(jobsData);
+  } catch (error) {
+    console.error("Error fetching latest jobs:", error.message);
+    res.status(500).json({ error: "Internal Server Error" });
   }
-}
+});
 
-async function fetchDataAndSaveToExcel() {
-  const search = await searchPost();
-  sendEmailWithAttachment(search)
-}
+app.post("/subscribe", async (req, res) => {
+  const { email } = req.body;
 
-async function sendEmailWithAttachment(search) {
-  const transporter = nodemailer.createTransport({
-    service: 'gmail', 
-    auth: {
-      user: process.env.SERVICE_EMAIL,
-      pass: process.env.PASSWORD,
-    },
-  });
+  try {
+    const alreadySubscribed = await SubscriberModel.findOne({email: email});
+    if(alreadySubscribed) return res.status(409).json({message:"Already Subscribed"})
+    // Save the email to the MongoDB model
+    await SubscriberModel.create({ email });
+   return res.status(200).json({ message: "Subscription successful" });
+  } catch (error) {
+    console.error("Error subscribing:", error.message);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+app.post("/unsubscribe", async (req, res) => {
+  const { email } = req.body;
 
+  try {
+    const alreadySubscribed = await SubscriberModel.findOne({email: email});
+    if(!alreadySubscribed) return res.status(404).json({message:"You have not subscribed to use"})
+    // Save the email to the MongoDB model
+    await SubscriberModel.findOneAndDelete({email: email});
+   return res.status(200).json({ message: "Unsubscribed succesfull" });
+  } catch (error) {
+    console.error("Error subscribing:", error.message);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+app.listen(PORT, () => {
+  console.log("Server started and running on port", PORT);
+});
+
+// Nodemailer setup
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: 'YOUR_GMAIL_EMAIL',
+    pass: 'YOUR_GMAIL_PASSWORD',
+  },
+});
+
+// Function to send email with job listings
+async function sendEmailWithJobListings(subscribers, jobListings) {
   const generateJobListingTable = (data) => {
     let tableHTML = `
       <table>
@@ -67,7 +92,7 @@ async function sendEmailWithAttachment(search) {
           <th>Link</th>
         </tr>
     `;
-  
+
     data.forEach((job) => {
       tableHTML += `
         <tr>
@@ -79,11 +104,11 @@ async function sendEmailWithAttachment(search) {
         </tr>
       `;
     });
-  
+
     tableHTML += '</table>';
     return tableHTML;
   };
-  
+
   const emailContent = `
     <html>
       <head>
@@ -107,21 +132,82 @@ async function sendEmailWithAttachment(search) {
       </head>
       <body>
         <h1>Job Listings</h1>
-        ${generateJobListingTable(search)}
+        ${generateJobListingTable(jobListings)}
       </body>
     </html>
   `;
 
   const mailOptions = {
-    from: process.env.SERVICE_EMAIL,
-    to: process.env.TO_EMAIL, 
+    from: 'YOUR_GMAIL_EMAIL',
     subject: 'Daily Jobs Data',
     html: emailContent,
   };
-  await transporter.sendMail(mailOptions);
+
+  // Send emails to all subscribers
+  for (const subscriber of subscribers) {
+    mailOptions.to = subscriber.email;
+    await transporter.sendMail(mailOptions);
+  }
 }
-cron.schedule('0 9 * * *', () => {
-  fetchDataAndSaveToExcel();
+
+// Schedule cron job to send emails at 9 AM daily
+cron.schedule('0 9 * * *', async () => {
+  try {
+    const subscribers = await SubscriberModel.find({}, { _id: 0, email: 1 });
+    const jobsData = await searchPost();
+    await sendEmailWithJobListings(subscribers, jobsData);
+  } catch (error) {
+    console.error('Error in cron job:', error.message);
+  }
 }, {
-  timezone: 'Asia/Kolkata' 
+  timezone: 'Asia/Kolkata',
 });
+
+
+async function searchPost() {
+  try {
+    const res = await fetch(
+      "https://in.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search?keywords=Software%2BDevelopment&location=Delhi%2C%2BIndia&locationId=&geoId=106187582&f_TPR=r86400&start=0",
+      {
+        headers: {
+          accept: "*/*",
+          "accept-language": "en-US,en;q=0.9",
+          "csrf-token": "ajax:6402797847549255079",
+          "sec-ch-ua":
+            '"Not A(Brand";v="99", "Google Chrome";v="121", "Chromium";v="121"',
+          "sec-ch-ua-mobile": "?0",
+          "sec-ch-ua-platform": '"Windows"',
+          "sec-fetch-dest": "empty",
+          "sec-fetch-mode": "cors",
+          "sec-fetch-site": "same-origin",
+          cookie:
+            'lang=v=2&lang=en-us; bcookie="v=2&17ca0de2-0d40-42fd-88c3-6e9b6a6e75c8"; lidc="b=OGST09:s=O:r=O:a=O:p=O:g=2707:u=1:x=1:i=1706815253:t=1706901653:v=2:sig=AQFwNFGEE18ViCC0c0E7BLOIBzz8ixOq"; AMCVS_14215E3D5995C57C0A495C55%40AdobeOrg=1; AMCV_14215E3D5995C57C0A495C55%40AdobeOrg=-637568504%7CMCIDTS%7C19755%7CMCMID%7C89379025090399892634208657771163074739%7CMCAAMLH-1707420054%7C12%7CMCAAMB-1707420054%7C6G1ynYcLPuiQxYZrsz_pkqfLG9yMXBpb2zX5dvJdYQJzPXImdj0y%7CMCOPTOUT-1706822454s%7CNONE%7CvVersion%7C5.1.1; aam_uuid=89911219493727277484226356453946831736; _gcl_au=1.1.1262780752.1706815259; JSESSIONID=ajax:6402797847549255079; bscookie="v=1&2024020119542142795047-ef57-48f0-828a-ff071e56dc7aAQGcaiuY5GXSlGnrR6gzuci0znXacS1_"; aam_uuid=89911219493727277484226356453946831736; recent_history=AQGkgR3cRft0owAAAY1mPTWrv5tzY4g8z3VJh3TqlZggWhhAx5163J9kDnL7faoBQkv8C9W6KYT8CWM56n7VvvsuDk1s4Ul5MQOt-XDx8CwAPHmR2q-FR71OKyGwMjG4SOect0_18q-3FeJfMhTmueyv5X8sOYHq2Gl6WZTR_eq09H63TOANDM39CFCuRpWaaSkGww2f1vnCcqdicEPc_RrqepC1HRnnkE_CtOrhJYqmIHjyoKMd3mqvU1vNGPUc9_2KhrQQyYUJE7kwnvKDmYY2nvO0If9lUuJtjaIlFmxnbuoauSdLNQVmHPWdYhVn3rWbDUx6b60Fn8EQYEoFI7eKmvvPDFTeyq-rzdDiOe12xv4VubpMCJsGm_vK5c4koDELx2WCxlqRLSGk_Zw1DwJokC0HTxxm8tGrz8-avgL3nDKVPYIJ5FTZXXWzzpVlRZ9Jz65dxEv7wJr71B0JJ0I; _uetsid=07807170c13711eea026b7b7566139ff; _uetvid=078093c0c13711eea90d77f9d04d93ef',
+          Referer:
+            "https://in.linkedin.com/jobs/search?keywords=Software%20Development&location=Delhi%2C%20India&locationId=&geoId=106187582&f_TPR=r86400&position=1&pageNum=0",
+          "Referrer-Policy": "strict-origin-when-cross-origin",
+        },
+        body: null,
+        method: "GET",
+      }
+    );
+    const html = await res.text();
+    const $ = cheerio.load(html);
+    const json = [];
+    const jobs = $(".job-search-card");
+    jobs.each((i, job) => {
+      const id = $(job).attr("data-entity-urn")?.split(":")?.[3];
+      const title = $(job).find(".base-search-card__title")?.text()?.trim();
+      const company = $(job)
+        .find(".base-search-card__subtitle")
+        ?.text()
+        ?.trim();
+      const link = $(job).find("a").attr("href")?.split("?")[0];
+      const location = $(job).find(".job-search-card__location").text().trim();
+      json.push({ id, title, company, link, location });
+    });
+    console.log(json);
+    return json;
+  } catch (err) {
+    console.log("error in catch->", err.message);
+  }
+}
