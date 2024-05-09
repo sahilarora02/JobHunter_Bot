@@ -43,7 +43,6 @@ app.post("/subscribe", async (req, res) => {
   try {
     const alreadySubscribed = await SubscriberModel.findOne({email: email});
     if(alreadySubscribed) return res.status(409).json({message:"Already Subscribed"})
-    // Save the email to the MongoDB model
     await SubscriberModel.create({ email });
    return res.status(200).json({ message: "Subscription successful" });
   } catch (error) {
@@ -57,7 +56,6 @@ app.post("/unsubscribe", async (req, res) => {
   try {
     const alreadySubscribed = await SubscriberModel.findOne({email: email});
     if(!alreadySubscribed) return res.status(404).json({message:"You have not subscribed to use"})
-    // Save the email to the MongoDB model
     await SubscriberModel.findOneAndDelete({email: email});
    return res.status(200).json({ message: "Unsubscribed succesfull" });
   } catch (error) {
@@ -70,16 +68,14 @@ app.listen(PORT, () => {
   console.log("Server started and running on port", PORT);
 });
 
-// Nodemailer setup
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
-    user: 'YOUR_GMAIL_EMAIL',
-    pass: 'YOUR_GMAIL_PASSWORD',
+    user: "sahilaroraji2002@gmail.com",
+    pass: "kasv zmey ojnx sisi",
   },
 });
 
-// Function to send email with job listings
 async function sendEmailWithJobListings(subscribers, jobListings) {
   const generateJobListingTable = (data) => {
     let tableHTML = `
@@ -138,12 +134,11 @@ async function sendEmailWithJobListings(subscribers, jobListings) {
   `;
 
   const mailOptions = {
-    from: 'YOUR_GMAIL_EMAIL',
+    from: process.env.SERVICE_EMAIL,
     subject: 'Daily Jobs Data',
     html: emailContent,
   };
 
-  // Send emails to all subscribers
   for (const subscriber of subscribers) {
     mailOptions.to = subscriber.email;
     await transporter.sendMail(mailOptions);
